@@ -1,25 +1,27 @@
 const WebSocket = require('ws');
-const port = process.env.port;
-const server = new WebSocket.Server({ port: 8080 });
+const express = require('express');
+const http = require('http');
+
+// Criar uma instância do Express
+const app = express();
+const server = http.createServer(app);
+
+// Configurar o WebSocket para usar o servidor HTTP
+const wss = new WebSocket.Server({ server });
 
 let clients = [];
 
-server.on('connection', (ws) => {
+// Configurar a porta (Heroku define a variável de ambiente PORT)
+const PORT = process.env.PORT || 8080;
+
+// Gerenciar novas conexões WebSocket
+wss.on('connection', (ws) => {
   clients.push(ws);
   console.log('New client connected');
 
   ws.on('message', (message) => {
-    // Verificar se a mensagem é um buffer
-    if (Buffer.isBuffer(message)) {
-      // Converter o buffer para texto
-      const textMessage = message.toString();
-      console.log('Received message:', textMessage);
-      broadcast(textMessage);
-    } else {
-      // Assumir que a mensagem já é uma string
-      console.log('Received message:', message);
-      broadcast(message);
-    }
+    console.log('Received message:', message);
+    broadcast(message);
   });
 
   ws.on('close', () => {
@@ -28,6 +30,7 @@ server.on('connection', (ws) => {
   });
 });
 
+// Função para transmitir mensagens para todos os clientes
 function broadcast(message) {
   clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
@@ -36,4 +39,10 @@ function broadcast(message) {
   });
 }
 
-console.log('WebSocket server is running on ws://localhost:8080');
+// Servir arquivos estáticos, se houver
+app.use(express.static('public'));
+
+// Iniciar o servidor HTTP
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
