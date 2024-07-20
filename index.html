@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Application</title>
+  <style>
+    #chat {
+      border: 1px solid #ccc;
+      width: 500px;
+      height: 300px;
+      overflow-y: scroll;
+      margin-bottom: 10px;
+    }
+    #message {
+      width: 400px;
+    }
+  </style>
+</head>
+<body>
+  <div id="chat"></div>
+  <input type="text" id="message" placeholder="Type your message here...">
+  <button id="send">Send</button>
+
+  <script>
+    const chat = document.getElementById('chat');
+    const messageInput = document.getElementById('message');
+    const sendButton = document.getElementById('send');
+
+    const ws = new WebSocket('ws://localhost:8080');
+
+    ws.onmessage = (event) => {
+      const message = document.createElement('div');
+      message.textContent = event.data;
+      chat.appendChild(message);
+      chat.scrollTop = chat.scrollHeight;
+    };
+
+    sendButton.addEventListener('click', () => {
+      const message = messageInput.value;
+      ws.send(message);
+      messageInput.value = '';
+    });
+
+    messageInput.addEventListener('keyup', (event) => {
+      if (event.key === 'Enter') {
+        sendButton.click();
+      }
+    });
+  </script>
+</body>
+</html>
