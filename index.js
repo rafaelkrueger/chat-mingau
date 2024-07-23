@@ -1,6 +1,7 @@
 const WebSocket = require('ws');
 const express = require('express');
 const http = require('http');
+const crypto = require('crypto');
 
 // Create an instance of Express
 const app = express();
@@ -10,38 +11,64 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 let clients = [];
+let clientColors = {};
 
 // Configure the port (Heroku provides the PORT environment variable)
 const PORT = process.env.PORT || 8080;
 
+// Function to generate a random color
+function getRandomColor() {
+  return '#' + Math.floor(Math.random() * 16777215).toString(16);
+}
+
 // Handle new WebSocket connections
 wss.on('connection', (ws) => {
-  clients.push(ws);
-  console.log('New client connected');
+  // Assign a unique color to the new client
+  const color = getRandomColor();
+  const clientId = crypto.randomUUID();
+  clients.push({ ws, clientId, color });
+  clientColors[clientId] = color;
+  console.log('New client connected with color:', color);
+
+  // Send the client's unique color
+  ws.send(JSON.stringify({ type: 'color', color }));
+
+  updateClientCount();
 
   ws.on('message', (message) => {
-    // Check if the message is a buffer and convert to string
     let textMessage;
     if (Buffer.isBuffer(message)) {
-      textMessage = message.toString('utf-8'); // Convert buffer to string
+      textMessage = message.toString('utf-8');
     } else {
-      textMessage = message; // Assume it's already a string
+      textMessage = message;
     }
     console.log('Received message:', textMessage);
-    broadcast(textMessage);
+    broadcast(textMessage, clientId);
   });
 
   ws.on('close', () => {
-    clients = clients.filter(client => client !== ws);
+    clients = clients.filter(client => client.ws !== ws);
+    delete clientColors[clientId];
     console.log('Client disconnected');
+    updateClientCount();
   });
 });
 
 // Function to broadcast messages to all clients
-function broadcast(message) {
+function broadcast(message, senderId) {
   clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message); // Send as string
+    if (client.ws.readyState === WebSocket.OPEN) {
+      client.ws.send(JSON.stringify({ type: 'message', text: message, senderId }));
+    }
+  });
+}
+
+// Function to update the number of connected clients
+function updateClientCount() {
+  const message = JSON.stringify({ type: 'count', count: clients.length });
+  clients.forEach((client) => {
+    if (client.ws.readyState === WebSocket.OPEN) {
+      client.ws.send(message);
     }
   });
 }
